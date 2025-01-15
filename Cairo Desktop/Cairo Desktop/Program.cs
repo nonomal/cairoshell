@@ -1,8 +1,7 @@
 ﻿using CairoDesktop.AppGrabber;
 using CairoDesktop.Application.Interfaces;
-using CairoDesktop.Common.ExtensionMethods;
 using CairoDesktop.Common.Logging;
-using CairoDesktop.Configuration;
+using CairoDesktop.Common;
 using CairoDesktop.Infrastructure.DependencyInjection;
 using CairoDesktop.Infrastructure.Options;
 using CairoDesktop.MenuBarExtensions;
@@ -13,7 +12,13 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
 using System.IO;
-using CairoDesktop.Interfaces;
+using CairoDesktop.Commands;
+using CairoDesktop.Infrastructure.ObjectModel;
+using CairoDesktop.DynamicDesktop.Commands;
+using CairoDesktop.DynamicDesktop.Services;
+using CairoDesktop.MenuBar.Services;
+using CairoDesktop.Taskbar.Services;
+using CairoDesktop.AppGrabber.Commands;
 
 namespace CairoDesktop
 {
@@ -62,7 +67,6 @@ namespace CairoDesktop
                     services.AddSingleton<IThemeService, CairoApplicationThemeService>();
 
                     services.AddSingleton<IDesktopManager, DesktopManager>();
-                    services.AddSingleton<IWindowManager, WindowManager>();
                     services.AddSingleton<IWindowService, MenuBarWindowService>();
                     services.AddSingleton<IWindowService, TaskbarWindowService>();
 
@@ -82,6 +86,39 @@ namespace CairoDesktop
 
                     // Inbox extensions below
                     services.AddSingleton<IShellExtension, MenuBarExtensionsShellExtension>();
+
+                    // Inbox commands below
+                    services.AddSingleton<ICairoCommand, AboutCairoCommand>();
+                    services.AddSingleton<ICairoCommand, CheckForUpdatesCommand>();
+                    services.AddSingleton<ICairoCommand, ExitCairoCommand>();
+                    services.AddSingleton<ICairoCommand, HibernateCommand>();
+                    services.AddSingleton<ICairoCommand, LockCommand>();
+                    services.AddSingleton<ICairoCommand, LogOffCommand>();
+                    services.AddSingleton<ICairoCommand, OpenAppGrabberCommand>();
+                    services.AddSingleton<ICairoCommand, OpenCairoSettingsCommand>();
+                    services.AddSingleton<ICairoCommand, OpenControlPanelCommand>();
+                    services.AddSingleton<ICairoCommand, OpenWindowsSettingsCommand>();
+                    services.AddSingleton<ICairoCommand, RestartCommand>();
+                    services.AddSingleton<ICairoCommand, ShowFilePropertiesCommand>();
+                    services.AddSingleton<ICairoCommand, ShowRunDialogCommand>();
+                    services.AddSingleton<ICairoCommand, ShutDownCommand>();
+                    services.AddSingleton<ICairoCommand, SleepCommand>();
+                    services.AddSingleton<ICairoCommand, StartTaskManagerCommand>();
+                    services.AddSingleton<ICairoCommand, ToggleDesktopOverlayCommand>();
+                    services.AddSingleton<ICairoCommand, OpenLocationCommand>();
+                    services.AddSingleton<ICairoCommand, OpenLocationInWindowCommand>();
+                    services.AddSingleton<ICairoCommand, AddStackCommand>();
+                    services.AddSingleton<ICairoCommand, RemoveStackCommand>();
+                    services.AddSingleton<ICairoCommand, CopyFileCommand>();
+                    services.AddSingleton<ICairoCommand, DeleteFileCommand>();
+                    services.AddSingleton<ICairoCommand, OpenFileCommand>();
+                    services.AddSingleton<ICairoCommand, OpenDateTimeControlPanelCommand>();
+                    services.AddSingleton<ICairoCommand, OpenDisplayControlPanelCommand>();
+                    services.AddSingleton<ICairoCommand, OpenPersonalizeControlPanelCommand>();
+                    services.AddSingleton<ICairoCommand, OpenProgramsControlPanelCommand>();
+                    services.AddSingleton<ICairoCommand, TaskViewCommand>();
+                    services.AddSingleton<ICairoCommand, AddToProgramsCommand>();
+                    services.AddSingleton<ICairoCommand, AddToQuickLaunchCommand>();
                 })
                 .ConfigureLogging((context, logging) =>
                 {
@@ -89,7 +126,7 @@ namespace CairoDesktop
 
                     logging.AddManagedShellLogging(options =>
                     {
-                        var severity = Settings.Instance.GetLogSeverity(LogSeverity.Info);
+                        var severity = Settings.Instance.LogSeverity;
                         options.LogLevel = severity.ToLogLevel();
                         options.LogsFolderPath = CairoApplication.LogsFolder;
                     });

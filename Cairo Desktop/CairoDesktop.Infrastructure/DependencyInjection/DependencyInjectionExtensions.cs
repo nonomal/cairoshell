@@ -1,5 +1,6 @@
 ﻿using CairoDesktop.Application.Interfaces;
 using CairoDesktop.Common.Logging.Other;
+using CairoDesktop.Infrastructure.ObjectModel;
 using CairoDesktop.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,6 +17,8 @@ namespace CairoDesktop.Infrastructure.DependencyInjection
             services.AddSingleton<IExtensionService, ExtensionService>();
             services.AddSingleton<IApplicationUpdateService, WinSparkleApplicationUpdateService>();
             services.AddSingleton<ShellManagerService>();
+            services.AddSingleton<ICommandService, CommandService>();
+            services.AddSingleton<IWindowManager, WindowManager>();
 
             return services;
         }

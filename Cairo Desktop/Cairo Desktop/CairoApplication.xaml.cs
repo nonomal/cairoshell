@@ -1,5 +1,5 @@
 ﻿using CairoDesktop.Application.Interfaces;
-using CairoDesktop.Configuration;
+using CairoDesktop.Common;
 using ManagedShell.Common.Helpers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -11,7 +11,6 @@ using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -27,6 +26,7 @@ namespace CairoDesktop
         private readonly ILogger<CairoApplication> _logger;
         private readonly IOptionsMonitor<CommandLineOptions> _options;
         private readonly IInitializationService _initializationService;
+        private readonly Settings _settings;
 
         public new static CairoApplication Current => System.Windows.Application.Current as CairoApplication;
 
@@ -37,17 +37,17 @@ namespace CairoDesktop
 
         public CairoApplication(IHost host, ILogger<CairoApplication> logger,
             IOptionsMonitor<CommandLineOptions> options,
-            IInitializationService initializationService)
+            IInitializationService initializationService, Settings settings)
         {
             Host = host;
             _logger = logger;
             _options = options;
             _initializationService = initializationService;
+            _settings = settings;
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
             Extensions = new List<IShellExtension>();
 
-            Commands = new List<ICommand>();
             CairoMenu = new List<IMenuItem>();
             Places = new List<IMenuItem>();
             MenuBarExtensions = new List<IMenuBarExtension>();
@@ -55,6 +55,7 @@ namespace CairoDesktop
             AppVersion = ProductVersion.ToString();
 
             InitializeComponent();
+            _settings = settings;
         }
 
         protected override void OnStartup(StartupEventArgs e)
@@ -67,10 +68,11 @@ namespace CairoDesktop
             _initializationService.WriteApplicationDebugInfoToConsole(productVersion: ProductVersion);
 
             _initializationService.LoadExtensions();
+            _initializationService.LoadCommands();
 
             _initializationService.SetTheme();
 
-            if (Settings.Instance.ForceSoftwareRendering)
+            if (_settings.ForceSoftwareRendering)
             {
                 RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
             }
@@ -243,7 +245,7 @@ namespace CairoDesktop
 
         public static Version ProductVersion => (Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly()).GetName().Version;
 
-        public static string CairoApplicationDataFolder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Cairo_Development_Team");
+        public static string CairoApplicationDataFolder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Cairo Desktop");
 
         public static string LogsFolder => Path.Combine(CairoApplicationDataFolder, "Logs");
 
@@ -252,8 +254,6 @@ namespace CairoDesktop
         public IHost Host { get; }
 
         public List<IShellExtension> Extensions { get; }
-
-        public List<ICommand> Commands { get; }
 
         public List<IMenuItem> CairoMenu { get; }
 

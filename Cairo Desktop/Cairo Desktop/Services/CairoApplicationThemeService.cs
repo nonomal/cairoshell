@@ -1,5 +1,5 @@
 ﻿using CairoDesktop.Application.Interfaces;
-using CairoDesktop.Configuration;
+using CairoDesktop.Common;
 using ManagedShell.Common.Helpers;
 using ManagedShell.Common.Logging;
 using ManagedShell.Interop;
@@ -10,6 +10,8 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using Microsoft.Extensions.Logging;
+using System.Management;
+using CairoDesktop.SupportingClasses;
 
 namespace CairoDesktop.Services
 {
@@ -26,22 +28,21 @@ namespace CairoDesktop.Services
         };
         private readonly ILogger<CairoApplicationThemeService> _logger;
         private readonly Settings _settings;
+        private RegistryEventWatcher _watcher;
 
         public CairoApplicationThemeService(ILogger<CairoApplicationThemeService> logger, Settings settings)
         {
             _logger = logger;
             _settings = settings;
-
             MigrateSettings();
-
             _settings.PropertyChanged += Settings_PropertyChanged;
         }
 
         private void MigrateSettings()
         {
-            if (_settings.CairoTheme.EndsWith(".xaml"))
+            if (_settings.Theme.EndsWith(".xaml"))
             {
-                _settings.CairoTheme = _settings.CairoTheme.Replace(".xaml", "");
+                _settings.Theme = _settings.Theme.Replace(".xaml", "");
             }
         }
 
@@ -49,9 +50,9 @@ namespace CairoDesktop.Services
         {
             SetTheme(THEME_DEFAULT);
 
-            if (_settings.CairoTheme != THEME_DEFAULT)
+            if (_settings.Theme != THEME_DEFAULT)
             {
-                SetTheme(_settings.CairoTheme);
+                SetTheme(_settings.Theme);
             }
 
             SetDarkMode();
@@ -90,11 +91,44 @@ namespace CairoDesktop.Services
                 {
                     Source = new Uri(themeFilePath, UriKind.RelativeOrAbsolute)
                 });
+                CheckForDynamicColor();
             }
             catch (Exception e)
             {
                 ShellLogger.Error($"ThemeService: Unable to load theme {theme}: {e.Message}");
             }
+        }
+
+        /// <summary>
+        /// Looks up the merged dictionaries for the <b>FollowThemeColors</b> boolean value.<br/>
+        /// If found, the event watcher is defined and starts looking for changes to the AccentColor<br/>
+        /// in the Windows Registry.
+        /// </summary>
+        private void CheckForDynamicColor()
+        {
+            bool doesThemeFollowColors = CairoApplication.Current.Resources.MergedDictionaries.Where(d =>
+                    d.Contains("FollowThemeColors") && (Boolean)d["FollowThemeColors"]).LongCount() > 0L;
+
+            if (doesThemeFollowColors)
+            {
+                if (_watcher == null) _watcher = new RegistryEventWatcher(RegistryChangedEvent);
+                _watcher.StartWatcher();
+            }
+            else
+            {
+                if(_watcher != null ) _watcher.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Raised by the RegistryEventWatcher.<br/>
+        /// Reloads the theme to update the color
+        /// </summary>
+        /// <param name="sender">The object responsible for raising the event</param>
+        /// <param name="e">Additional arguments passed by the event</param>
+        private void RegistryChangedEvent(object sender, EventArrivedEventArgs e)
+        {
+            this.SetThemeFromSettings();
         }
 
         public List<string> GetThemes()
@@ -144,7 +178,7 @@ namespace CairoDesktop.Services
 
         private void Settings_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
-            if (e == null || string.IsNullOrWhiteSpace(e.PropertyName) || e.PropertyName != "CairoTheme")
+            if (e == null || string.IsNullOrWhiteSpace(e.PropertyName) || e.PropertyName != "Theme")
             {
                 return;
             }
@@ -155,6 +189,7 @@ namespace CairoDesktop.Services
         public void Dispose()
         {
             Dispose(true);
+            if(_watcher != null) _watcher.Dispose();
             GC.SuppressFinalize(this);
         }
 

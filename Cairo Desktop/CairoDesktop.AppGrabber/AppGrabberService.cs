@@ -1,6 +1,5 @@
 ﻿using CairoDesktop.Common;
-using CairoDesktop.Interop;
-using CairoDesktop.Localization;
+using CairoDesktop.Common.Localization;
 using ManagedShell.Common.Enums;
 using ManagedShell.Common.Helpers;
 using ManagedShell.Common.Logging;
@@ -207,7 +206,15 @@ namespace CairoDesktop.AppGrabber
 
             try
             {
-                parent = Directory.GetParent(app.Path).FullName;
+                string path = app.Path;
+
+                if (path.EndsWith(".lnk") && !ShellHelper.Exists(app.Path) && !string.IsNullOrEmpty(app.Target) && ShellHelper.Exists(app.Target))
+                {
+                    // Use target if the shortcut has been deleted
+                    path = app.Target;
+                }
+
+                parent = Directory.GetParent(path).FullName;
             }
             catch (Exception e)
             {
@@ -225,7 +232,11 @@ namespace CairoDesktop.AppGrabber
             {
                 try
                 {
-                    fileDisplayName = FileVersionInfo.GetVersionInfo(filePath).FileDescription;
+                    string fileDescription = FileVersionInfo.GetVersionInfo(filePath).FileDescription;
+                    if (!string.IsNullOrEmpty(fileDescription))
+                    {
+                        fileDisplayName = fileDescription;
+                    }
                 }
                 catch (Exception e)
                 {
@@ -371,9 +382,25 @@ namespace CairoDesktop.AppGrabber
                     CairoMessage.Show(DisplayString.sError_FileNotFoundInfo, DisplayString.sError_OhNo, MessageBoxButton.OK, CairoMessageImage.Error);
                 }
             }
-            else if (!ShellHelper.StartProcess(app.Path, workingDirectory: getAppParentDirectory(app)))
+            else
             {
-                CairoMessage.Show(DisplayString.sError_FileNotFoundInfo, DisplayString.sError_OhNo, MessageBoxButton.OK, CairoMessageImage.Error);
+                // Store apps that are FullTrust can be activated, which works even without Explorer
+                // Non-FullTrust apps will not launch without Explorer and will hang us, so don't use activation for them
+                if (app.IsStoreApp && app.AllowRunAsAdmin)
+                {
+                    if (!ShellHelper.ActivateApplication(app.Target))
+                    {
+                        CairoMessage.Show(DisplayString.sError_FileNotFoundInfo, DisplayString.sError_OhNo, MessageBoxButton.OK, CairoMessageImage.Error);
+                    }
+                }
+                else if (!ShellHelper.StartProcess(app.Path, workingDirectory: getAppParentDirectory(app)))
+                {
+                    // Retry with target if this is a shortcut
+                    if (!app.Path.EndsWith(".lnk") || string.IsNullOrEmpty(app.Target) || !ShellHelper.StartProcess(app.Target, workingDirectory: getAppParentDirectory(app)))
+                    {
+                        CairoMessage.Show(DisplayString.sError_FileNotFoundInfo, DisplayString.sError_OhNo, MessageBoxButton.OK, CairoMessageImage.Error);
+                    }
+                }
             }
         }
 
@@ -384,7 +411,15 @@ namespace CairoDesktop.AppGrabber
                 return;
             }
 
-            if (!ShellHelper.StartProcess(app.Path, "", verb, getAppParentDirectory(app)))
+            string path = app.Path;
+
+            if (path.EndsWith(".lnk") && !ShellHelper.Exists(app.Path) && !string.IsNullOrEmpty(app.Target) && ShellHelper.Exists(app.Target))
+            {
+                // Use target if the shortcut has been deleted
+                path = app.Target;
+            }
+
+            if (!ShellHelper.StartProcess(path, "", verb, getAppParentDirectory(app)))
             {
                 CairoMessage.Show(DisplayString.sError_FileNotFoundInfo, DisplayString.sError_OhNo, MessageBoxButton.OK, CairoMessageImage.Error);
             }
@@ -509,7 +544,29 @@ namespace CairoDesktop.AppGrabber
             if (app.IsStoreApp)
                 CairoMessage.Show(DisplayString.sProgramsMenu_UWPInfo, app.Name, app.GetIconImageSource(IconSize.Jumbo), true);
             else
-                ShellHelper.ShowFileProperties(app.Path);
+            {
+                string path = app.Path;
+
+                if (path.EndsWith(".lnk") && !ShellHelper.Exists(app.Path) && !string.IsNullOrEmpty(app.Target) && ShellHelper.Exists(app.Target))
+                {
+                    // Use target if the shortcut has been deleted
+                    path = app.Target;
+                }
+
+                ShellHelper.ShowFileProperties(path);
+            }
+        }
+
+        public bool CanAddPathToCategory(string fileName, AppCategoryType categoryType)
+        {
+            ApplicationInfo customApp = PathToApp(fileName, false, false);
+            if (ReferenceEquals(customApp, null))
+            {
+                return false;
+            }
+
+            Category category = CategoryList.GetSpecialCategory(categoryType);
+            return !category.Contains(customApp);
         }
 
         public void InsertByPath(string[] fileNames, int index, AppCategoryType categoryType)
@@ -607,6 +664,7 @@ namespace CairoDesktop.AppGrabber
         void AddByPath(string fileName, AppCategoryType categoryType);
         void AddStoreApp(string appUserModelId, AppCategoryType categoryType);
         void InsertByPath(string[] fileNames, int index, AppCategoryType categoryType);
+        bool CanAddPathToCategory(string fileName, AppCategoryType categoryType);
         void LaunchProgram(ApplicationInfo app);
         void LaunchProgramAdmin(ApplicationInfo app);
         void LaunchProgramVerb(ApplicationInfo app, string verb);

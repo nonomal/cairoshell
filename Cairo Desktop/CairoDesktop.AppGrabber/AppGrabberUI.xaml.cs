@@ -8,6 +8,8 @@ using System.Windows.Controls;
 using System.Windows.Forms;
 using ManagedShell.Common.Helpers;
 using ManagedShell.Common.Logging;
+using System.Windows.Interop;
+using System.Windows.Media;
 
 namespace CairoDesktop.AppGrabber
 {
@@ -56,9 +58,19 @@ namespace CairoDesktop.AppGrabber
         {
             this.appGrabber = appGrabber;
             InitializeComponent();
+        }
 
-            Height = (SystemParameters.MaximizedPrimaryScreenHeight / DpiHelper.DpiScaleAdjustment) - 100;
-            MaxHeight = SystemParameters.MaximizedPrimaryScreenHeight / DpiHelper.DpiScaleAdjustment;
+        private void Window_SourceInitialized(object sender, EventArgs e)
+        {
+            WindowInteropHelper helper = new WindowInteropHelper(this);
+
+            Screen screen = Screen.FromHandle(helper.Handle);
+            DpiScale dpiScale = VisualTreeHelper.GetDpi(this);
+
+            MaxHeight = screen.WorkingArea.Height / dpiScale.DpiScaleY;
+            Height = MaxHeight - 100;
+            Top = (screen.WorkingArea.Top / dpiScale.DpiScaleY) + ((MaxHeight - Height) / 2);
+            Left = (screen.WorkingArea.Left / dpiScale.DpiScaleX) + (((screen.WorkingArea.Width / dpiScale.DpiScaleX) - Width) / 2);
         }
 
         #region Button Clicks
@@ -115,7 +127,7 @@ namespace CairoDesktop.AppGrabber
 
         private void btnAdd_Click(object sender, RoutedEventArgs e)
         {
-            appGrabber.CategoryList.Add(new Category(Localization.DisplayString.sAppGrabber_Untitled));
+            appGrabber.CategoryList.Add(new Category(Common.Localization.DisplayString.sAppGrabber_Untitled));
             scrollViewer.ScrollToEnd();
         }
 
@@ -231,13 +243,13 @@ namespace CairoDesktop.AppGrabber
         #region Auto selection
 
         // categories
-        static string accessories = Localization.DisplayString.sAppGrabber_Category_Accessories;
-        static string productivity = Localization.DisplayString.sAppGrabber_Category_Productivity;
-        static string development = Localization.DisplayString.sAppGrabber_Category_Development;
-        static string graphics = Localization.DisplayString.sAppGrabber_Category_Graphics;
-        static string media = Localization.DisplayString.sAppGrabber_Category_Media;
-        static string internet = Localization.DisplayString.sAppGrabber_Category_Internet;
-        static string games = Localization.DisplayString.sAppGrabber_Category_Games;
+        static string accessories = Common.Localization.DisplayString.sAppGrabber_Category_Accessories;
+        static string productivity = Common.Localization.DisplayString.sAppGrabber_Category_Productivity;
+        static string development = Common.Localization.DisplayString.sAppGrabber_Category_Development;
+        static string graphics = Common.Localization.DisplayString.sAppGrabber_Category_Graphics;
+        static string media = Common.Localization.DisplayString.sAppGrabber_Category_Media;
+        static string internet = Common.Localization.DisplayString.sAppGrabber_Category_Internet;
+        static string games = Common.Localization.DisplayString.sAppGrabber_Category_Games;
 
         string[] autoAppNames = {
             // accessories

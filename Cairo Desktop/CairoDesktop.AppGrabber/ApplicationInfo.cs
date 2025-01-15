@@ -4,6 +4,8 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Media;
+using CairoDesktop.Common;
+using CairoDesktop.Common.Localization;
 using ManagedShell.Common.Enums;
 using ManagedShell.Common.Helpers;
 
@@ -74,7 +76,7 @@ namespace CairoDesktop.AppGrabber
             get
             {
                 if (IsStoreApp)
-                    return Localization.DisplayString.sProgramsMenu;
+                    return DisplayString.sProgramsMenu;
                 else
                 {
                     try
@@ -242,7 +244,7 @@ namespace CairoDesktop.AppGrabber
         private ImageSource GetAssociatedIcon()
         {
             IconSize size = IconSize.Small;
-            if (Category != null && Category.Type == AppCategoryType.QuickLaunch && (IconSize)Configuration.Settings.Instance.TaskbarIconSize != IconSize.Small)
+            if (Category != null && Category.Type == AppCategoryType.QuickLaunch && Settings.Instance.TaskbarIconSize != IconSize.Small)
                 size = IconSize.Large;
 
             return GetIconImageSource(size);
@@ -264,8 +266,15 @@ namespace CairoDesktop.AppGrabber
 
                 return storeApp.GetIconImageSource(size);
             }
-            
-            return IconImageConverter.GetImageFromAssociatedIcon(Path, size);
+
+            IntPtr hIcon = IconHelper.GetIconByFilename(Path, size);
+            if (hIcon == IntPtr.Zero && Path.EndsWith(".lnk") && !string.IsNullOrEmpty(Target))
+            {
+                // Retry with target if this is a shortcut
+                hIcon = IconHelper.GetIconByFilename(Target, size);
+            }
+
+            return IconImageConverter.GetImageFromHIcon(hIcon);
         }
 
         public static ApplicationInfo FromStoreApp(ManagedShell.UWPInterop.StoreApp storeApp)
@@ -275,7 +284,7 @@ namespace CairoDesktop.AppGrabber
             ai.Path = "appx:" + storeApp.AppUserModelId;
             ai.Target = storeApp.AppUserModelId;
             ai.IconColor = storeApp.IconColor;
-            ai.AllowRunAsAdmin = storeApp.EntryPoint == "Windows.FullTrustApplication";
+            ai.AllowRunAsAdmin = storeApp.EntryPoint?.ToLower() == "windows.fulltrustapplication" || storeApp.HostId?.ToLower() == "pwa";
 
             return ai;
         }

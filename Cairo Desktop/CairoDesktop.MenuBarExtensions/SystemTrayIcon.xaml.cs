@@ -1,7 +1,9 @@
-﻿using ManagedShell.Common.Helpers;
+﻿using CairoDesktop.Common;
+using ManagedShell.Common.Helpers;
 using ManagedShell.Interop;
 using ManagedShell.WindowsTray;
 using System;
+using System.ComponentModel;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -53,6 +55,9 @@ namespace CairoDesktop.MenuBarExtensions
                 return;
             }
 
+            applyEffects();
+
+            Settings.Instance.PropertyChanged += Settings_PropertyChanged;
             _notifyIcon.NotificationBalloonShown += TrayIcon_NotificationBalloonShown;
 
             // If a notification was received before we started listening, it will be here. Show the first one that is not expired.
@@ -73,13 +78,66 @@ namespace CairoDesktop.MenuBarExtensions
             {
                 _notifyIcon.NotificationBalloonShown -= TrayIcon_NotificationBalloonShown;
             }
+            Settings.Instance.PropertyChanged -= Settings_PropertyChanged;
 
             _isLoaded = false;
+        }
+
+        private void Settings_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e == null || string.IsNullOrWhiteSpace(e.PropertyName))
+            {
+                return;
+            }
+
+            if (e.PropertyName == "Theme")
+            {
+                applyEffects();
+            }
+        }
+
+        private void applyEffects()
+        {
+            if (!EnvironmentHelper.IsWindows10OrBetter || _notifyIcon == null)
+            {
+                return;
+            }
+
+            string iconGuid = _notifyIcon.GUID.ToString();
+
+            if (!(iconGuid == NotificationArea.HARDWARE_GUID ||
+                iconGuid == NotificationArea.UPDATE_GUID ||
+                iconGuid == NotificationArea.MICROPHONE_GUID ||
+                iconGuid == NotificationArea.LOCATION_GUID ||
+                iconGuid == NotificationArea.MEETNOW_GUID ||
+                iconGuid == NotificationArea.NETWORK_GUID ||
+                iconGuid == NotificationArea.POWER_GUID ||
+                iconGuid == NotificationArea.VOLUME_GUID))
+            {
+                return;
+            }
+
+            bool invertByTheme = FindResource("EnableInvertSystemNotifyIcons") as bool? ?? false;
+
+            if (NotifyIconImage.Effect == null != invertByTheme)
+            {
+                return;
+            }
+
+            if (invertByTheme)
+            {
+                NotifyIconImage.Effect = new InvertEffect();
+            }
+            else
+            {
+                NotifyIconImage.Effect = null;
+            }
         }
 
         #region Notify icon image mouse events
         private void Image_MouseDown(object sender, MouseButtonEventArgs e)
         {
+            e.Handled = true;
             var trayIcon = (sender as Decorator).DataContext as NotifyIcon;
 
             // set current menu bar to return placement for ABM_GETTASKBARPOS message
@@ -90,6 +148,7 @@ namespace CairoDesktop.MenuBarExtensions
 
         private void Image_MouseUp(object sender, MouseButtonEventArgs e)
         {
+            e.Handled = true;
             var trayIcon = (sender as Decorator).DataContext as NotifyIcon;
 
             trayIcon?.IconMouseUp(e.ChangedButton, MouseHelper.GetCursorPositionParam(), System.Windows.Forms.SystemInformation.DoubleClickTime);

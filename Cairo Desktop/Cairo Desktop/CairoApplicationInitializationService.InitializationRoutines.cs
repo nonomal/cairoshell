@@ -1,6 +1,6 @@
 ﻿using CairoDesktop.Application.Interfaces;
+using CairoDesktop.Infrastructure.ObjectModel;
 using CairoDesktop.Infrastructure.Options;
-using CairoDesktop.Services;
 using ManagedShell.Common.Helpers;
 using ManagedShell.Interop;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,7 +8,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System;
-using CairoDesktop.Interfaces;
 
 namespace CairoDesktop
 {
@@ -50,10 +49,30 @@ namespace CairoDesktop
             EnvironmentHelper.IsAppRunningAsShell = (NativeMethods.GetShellWindow() == IntPtr.Zero && !forceNoShell) || forceShell;
         }
 
+        void IInitializationService.LoadCommands()
+        {
+            try
+            {
+                var commandService = _host.Services.GetService<ICommandService>();
+                commandService?.Start();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Unable to start command service due to exception in {ex.TargetSite?.Module}: {ex.Message}");
+            }
+        }
+
         void IInitializationService.LoadExtensions()
         {
-            var pluginService = _host.Services.GetService<IExtensionService>();
-            pluginService?.Start();
+            try
+            {
+                var pluginService = _host.Services.GetService<IExtensionService>();
+                pluginService?.Start();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Unable to start extension service due to exception in {ex.TargetSite?.Module}: {ex.Message}");
+            }
         }
 
         void IInitializationService.WriteApplicationDebugInfoToConsole(Version productVersion)
@@ -78,6 +97,7 @@ namespace CairoDesktop
                 service.Register();
             }
 
+            _host.Services.GetService<IDesktopManager>()?.Initialize();
             _host.Services.GetService<IWindowManager>()?.InitialSetup();
         }
     }
